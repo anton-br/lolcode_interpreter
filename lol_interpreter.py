@@ -4,6 +4,7 @@ import ply.yacc as yacc
 from ply.lex import TOKEN
 import re
 import os
+import sys
 
 keywords = (
     'VISIBLE', 'I', 'HAS', 'A', 'R', 'ITZ', 'AN', 'OF', 'WIN', 'FAIL', 'NOOB',
@@ -94,6 +95,130 @@ precedence = (
 
 names = {}
 
+def p_program(p):
+    '''program : program statement
+               | statement'''
+    if len(p) == 2:
+        p[0] = {}
+        line, stat = p[1]
+        p[0][line] = stat
+    if len(p) == 3:
+        p[0] = p[1]
+        if not p[0]:
+            p[0] = { }
+        line, stat = p[2]
+        p[0][line] = stat
+
+def p_statement(p):
+    '''statement : command NEWLINE
+                 | command empty'''
+    line = p[1][0]
+    p[0] = (line, p[1][1:])
+
+def p_expression_variable(p):
+    '''expression : NAME'''
+    p[0] = p[1]
+
+def p_command_create(p):
+    '''command : I HAS A NAME '''
+    p[0] = (p.lineno(1), 'none', p[4])
+
+def p_command_create_assign(p):
+    '''command : I HAS A NAME ITZ expression '''
+    p[0] = (p.lineno(1), 'assign', p[4], p[6])
+
+def p_statement_assign(p):
+    '''statement : NAME R expression '''
+    p[0] = (p.lineno(1), ('equal', p[1], p[3]))
+
+def p_expression_type(p):
+    '''expression : WIN
+                  | FAIL
+                  | NUMBR
+                  | NUMBAR
+                  | YARN
+                  | NOOB '''
+    p[0] = p[1]
+
+def p_expression_op(p):
+    '''expression : SUM OF expression AN expression
+                  | DIFF OF expression AN expression
+                  | PRODUKT OF expression AN expression
+                  | QUOSHUNT OF expression AN expression
+                  | MOD OF expression AN expression
+                  | BIGGR OF expression AN expression
+                  | SMALLR OF expression AN expression'''
+    p[0] = (p[1], p[3], p[5])
+
+def p_expression_binop(p):
+    '''expression : BOTH OF expression expression
+                  | BOTH OF expression AN expression
+                  | EITHER OF expression expression
+                  | EITHER OF expression AN expression
+                  | WON OF expression expression
+                  | WON OF expression AN expression '''
+    second = p[4] if len(p) == 5 else p[5]
+    p[0] = (p[1], p[3], second)
+
+def p_expression_saem(p):
+    '''expression : BOTH SAEM expression expression
+                  | BOTH SAEM expression AN expression '''
+    second = p[4] if len(p) == 5 else p[5]
+    p[0] = ('saem', p[3], second)
+
+def p_expression_diff(p):
+    '''expression : DIFFRINT expression expression
+                  | DIFFRINT expression AN expression '''
+    second = p[3] if len(p) == 4 else p[4]
+    p[0] = (p[1], p[2], second)
+
+def p_expression_inf_ari(p):
+    '''expression : ALL OF expression MKAY
+                  | ALL OF expression AN expression MKAY
+                  | ALL OF expression AN expression AN expression MKAY
+                  | ANY OF expression MKAY
+                  | ANY OF expression AN expression MKAY
+                  | ANY OF expression AN expression AN expression MKAY'''
+    p[0] = (p[1], p[3::2])
+
+def p_expression_unaryop(p):
+    '''expression : NOT expression'''
+    p[0] = (p[1], p[2])
+
+def p_statement_cast(p):
+    '''statement : NAME IS NOW A TYPE'''
+    p[0] = (p.lineno(1), ('cast', p[1], p[5]))
+
+def p_command_input(p):
+    '''command : GIMMEH NAME'''
+    p[0] = ('input', p[2])
+
+def p_command_print(p):
+    ''' command : VISIBLE expression'''
+    p[0] = (p.lineno(1), 'print', p[2])
+
+def p_statement_newline(p):
+    '''statement : NEWLINE'''
+    p[0] = None
+
+def p_start_if(p):
+    '''empty : expression IF'''
+    global if_started
+    if_started = []
+    print('HERE')
+
+def p_empty(p):
+    ''' empty : '''
+    p[0] = None
+
+def p_error(p):
+    if p:
+        print("Syntax error at '%s'" % p.value)
+    else:
+        print("Syntax error at EOF")
+
+yacc.yacc()
+
 operations = {
     'SUM': lambda a, b: a + b,
     'DIFF': lambda a, b: a - b,
@@ -116,192 +241,103 @@ lol_type = {
     'YARN': str,
     'TROOF': bool
 }
+
 type_lol = {
     'True': 'WIN',
     'False': 'FAIL',
     'None': 'NOOB'
 }
 
-def p_program(p):
-    '''program : program statement
-               | statement'''
-    if len(p) == 3:
-        if not isinstance(p[1], list):
-            p[1] = [p[1]]
-        if not isinstance(p[2], list):
-            p[2] = [p[2]]
-        p[0] = p[1] + p[2]
-    else:
-        p[0] = [p[1]]
-
-def p_statement(p):
-    '''statement : command NEWLINE
-                 | command empty'''
-    p[0] = p[1] if isinstance(p[1], (list, tuple)) else (p[1],)
-
-def p_statement_create(p):
-    '''statement : I HAS A NAME '''
-    if p[4] in names.keys():
-        raise Exception('а variable with name {} already exists'.format(p[4]))
-    names[p[4]] = 'NOOB'
-
-def p_statement_create_assign(p):
-    '''statement : I HAS A NAME ITZ expression '''
-    names[p[4]] = p[6]
-
-def p_command_assign(p):
-    '''command : NAME R expression '''
-    if p[1] not in names.keys():
-        raise Exception("use variable {} before declaring".format(p[1]))
-    names[p[1]] = p[3]
-
-def p_expression_type(p):
-    '''expression : WIN
-                  | FAIL
-                  | NUMBR
-                  | NUMBAR
-                  | YARN
-                  | NOOB '''
-    p[0] = p[1]
-
 def lolbool_to_bool(var):
     new_var = []
     for v in var:
         new_var.append(lol_type[v] if v in lol_type.keys() else v)
+    print(new_var)
     return new_var
 
-def p_expression_op(p):
-    '''expression : SUM OF expression AN expression
-                  | DIFF OF expression AN expression
-                  | PRODUKT OF expression AN expression
-                  | QUOSHUNT OF expression AN expression
-                  | MOD OF expression AN expression
-                  | BIGGR OF expression AN expression
-                  | SMALLR OF expression AN expression'''
-    p[3], p[5] = lolbool_to_bool([p[3], p[5]])
-    p[0] = operations[p[1]](p[3], p[5])
-    if str(p[0]) in type_lol.keys():
-        p[0] = type_lol[str(p[0])]
-
-def p_expression_binop(p):
-    '''expression : BOTH OF expression expression
-                  | BOTH OF expression AN expression
-                  | EITHER OF expression expression
-                  | EITHER OF expression AN expression
-                  | WON OF expression expression
-                  | WON OF expression AN expression '''
-    second = p[4] if len(p) == 5 else p[5]
-    p[3], second = lolbool_to_bool([p[3], second])
-    result = operations[p[1]](p[3], second)
-    p[0] = type_lol[str(result)] if str(result) in type_lol.keys() else result
-
-def p_expression_saem(p):
-    '''expression : BOTH SAEM expression expression
-                  | BOTH SAEM expression AN expression '''
-    second_arg = p[4] if len(p) == 5 else p[5]
-    p[0] = 'WIN' if p[3] == second_arg else 'FAIL'
-
-def p_expression_diff(p):
-    '''expression : DIFFRINT expression expression
-                  | DIFFRINT expression AN expression '''
-    second_arg = p[3] if len(p) == 4 else p[4]
-    p[0] = 'FAIL' if p[2] == second_arg else 'WIN'
-
-def p_expression_inf_ari(p):
-    '''expression : ALL OF expression MKAY
-                  | ALL OF expression AN expression MKAY
-                  | ALL OF expression AN expression AN expression MKAY
-                  | ANY OF expression MKAY
-                  | ANY OF expression AN expression MKAY
-                  | ANY OF expression AN expression AN expression MKAY'''
-    result = []
-    for exp in range(3, len(p), 2):
-        val = lol_type[p[exp]] if p[exp] in lol_type.keys() else p[exp]
-        result.append(val)
-    if p[1] == 'ALL':
-        result = reduce(lambda a, b: a * b, result)
-    else:
-        result = reduce(lambda a, b: a + b, result)
-    if result in type_lol.keys():
-        p[0] = type_lol[result]
-    elif result:
-        p[0] = 'WIN'
-    else:
-        p[0] = 'FAIL'
-
-def p_expression_unaryop(p):
-    '''expression : NOT expression'''
-    if p[2] not in ['WIN', 'FAIL']:
-        raise Exception('Unexpected type to unary negation')
-    p[0] = 'WIN' if p[2] == 'FAIL' else 'FAIL'
-
-# def p_expression_cast(p):
-#     '''expression : NAME IS NOW A TYPE'''
-#     names[p[1]] = lol_type[p[5]](names[p[1]])
-
-def p_command_input(p):
-    '''command : GIMMEH NAME'''
-    names[p[2]] = raw_input()
-
-def p_expression_variable(p):
-    '''expression : NAME'''
-    p[0] = names[p[1]]
-
-def p_command_print(p):
-    ''' command : VISIBLE expression'''
-    # print(p.lineno(1))
-    p[0] = ('print', p[2])
-
-def p_start_if(p):
-    '''empty : expression IF'''
-    global if_started
-    if_started = []
-    print('HERE')
-
-def p_statement_newline(p):
-    '''statement : NEWLINE'''
-    p[0] = None
-
-def p_empty(p):
-    ''' empty : '''
-    p[0] = None
-
-def p_error(p):
-    if p:
-        print("Syntax error at '%s'" % p.value)
-    else:
-        print("Syntax error at EOF")
-
-yacc.yacc()
+def eval(p):
+    if isinstance(p, tuple):
+        if p[0] == 'none':
+            variables[p[1]] = 'NOOB'
+        elif p[0] == 'equal':
+            if p[1] not in variables:
+                raise Exception('Variable with name {} not found!'.format(p[1]))
+            variables[p[1]] = eval(p[2])
+        elif p[0] == 'assign':
+            variables[p[1]] = eval(p[2])
+        elif p[0] in operations.keys():
+            fir, sec = lolbool_to_bool([p[1], p[2]])
+            res = operations[p[0]](fir, sec)
+            if p[0] in ['BOTH', 'EITHER', 'WON']:
+                return type_lol[str(bool(res))]
+            if str(res) in type_lol.keys():
+                 return type_lol[str(res)]
+            return res
+        elif p[0] == 'saem':
+            return 'WIN' if p[1] == p[2] else 'FAIL'
+        elif p[0] == 'DIFFRINT':
+            return 'FAIL' if p[1] == p[2] else 'WIN'
+        elif p[0] == 'ALL' or p[0] == 'ANY':
+            if p[0] == 'ALL':
+                res = reduce(lambda a, b: a * b, p[1])
+            else:
+                res = reduce(lambda a, b: a + b, p[1])
+            if res in type_lol.keys():
+                return type_lol[res]
+            elif res:
+                return 'WIN'
+            return 'FAIL'
+        elif p[0] == 'NOT':
+            if p[1] in variables.keys():
+                unary = variables[p[1]]
+            if unary not in ['WIN', 'FAIL']:
+                raise Exception('Unexpected type to unary negation')
+            return 'WIN' if unary == 'FAIL' else 'FAIL'
+    return p
 
 def run(p):
-    if isinstance(p, tuple):
-        if p[0] == 'print':
-            print(p[1])
-        # elif p[0] == 'OP':
-        #
-        # elif p[0] == 'BINOP':
+    num = min(p.keys())
+    global variables
+    variables = {}
+    while True:
+        line = p[num]
+        if line[0] == 'print':
+            eval_line = eval(line[1])
+            if eval_line in variables.keys():
+                print(variables[eval_line])
+            else:
+                print(eval_line)
+        elif line[0] == 'GIMMEH':
+            if line[1] not in variables:
+                raise Exception('Variable with name {} not found!'.format(line[1]))
+            variables[line[1]] = raw_input()
+        elif line[0] == 'cast':
+            line_1 = eval(line[1])
+            line_2 = eval(line[2])
+            if line_2 == 'TROOF':
+                val = 'WIN' if lol_type[line_2](variables[line_1]) else 'FAIL'
+            variables[line_1] = val
+        else:
+            a = eval(line)
+        num += 1
+        if num > max(p.keys()):
+            break
 
     return p
 
 if __name__=="__main__":
-    data_1 = '''
-    BOTH SAEM VAR1 AN VAR2 O RLY?
-    '''
-    data = '''
-    I HAS A V ITZ 2
-    VISIBLE V
-    '''
-    # data = re.sub(',', '\n', data)
-    # data = re.sub(' +', ' ', data)
+    if len(sys.argv) == 2:
+        data = open(sys.argv[1]).read()
     lexer.input(data)
     # while True:
     #     tok = lexer.token() # читаем следующий токен
     #     if not tok: break      # закончились печеньки
     #     print(tok)
-    commands = yacc.parse(data, debug=0)
-    print(commands)
-    for operation in commands:
-        run(operation)
-    print(operation)
-    print(names)
+    splited_data = data.split('\n')
+    commands = {}
+    for split in splited_data[:-1]:
+        commands.update(yacc.parse(split + '\n', debug=0))
+    # print(commands)
+    run(commands)
+    print(variables)
+    # print(names)

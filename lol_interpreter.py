@@ -6,6 +6,7 @@ import re
 import os
 import sys
 
+## Tokens with the same names as values
 keywords = (
     'VISIBLE', 'I', 'HAS', 'A', 'R', 'ITZ', 'AN', 'OF', 'WIN', 'FAIL', 'NOOB',
     'IS', 'NOW', 'TYPE', 'GIMMEH', 'YA', 'NO', 'RLY', 'WAI', 'OIC',
@@ -25,6 +26,8 @@ t_ignore = ' \r\t\f'
 states = (
 ("comment", "exclusive"),
 )
+
+## LEXSER
 
 def t_COMMENT(t):
     r'BTW.*'
@@ -88,6 +91,8 @@ def t_error(t):
     t.lexer.skip(1)
 
 lexer = lex.lex(debug=0)
+
+## PARSER
 
 precedence = (
     ('left', 'SUM', 'DIFF'),
@@ -194,7 +199,11 @@ def p_command_input(p):
     p[0] = ('input', p[2])
 
 def p_command_print(p):
-    ''' command : VISIBLE expression'''
+    ''' command : VISIBLE expression
+                | VISIBLE NEWLINE
+                | VISIBLE empty'''
+    if not p[2]:
+        p[2] = ''
     p[0] = (p.lineno(1), 'print', p[2])
 
 def p_statement_newline(p):
@@ -398,6 +407,8 @@ if __name__=="__main__":
     splited_data = data.split('\n')
     commands = {}
     for split in splited_data[:-1]:
+        if split == '\n':
+            continue
         result = yacc.parse(split + '\n', debug=0)
         if result:
             commands.update(result)

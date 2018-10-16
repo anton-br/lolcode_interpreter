@@ -6,4 +6,5 @@ BOTH SAEM 1 AN 0 O RLY?
   VISIBLE "We can perform more than one command in branch"
   VAR R 100
 OIC
+VISIBLE "THE VAR IS EQUAL TO"
 VISIBLE VAR

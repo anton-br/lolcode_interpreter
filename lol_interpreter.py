@@ -26,6 +26,10 @@ states = (
 ("comment", "exclusive"),
 )
 
+def t_COMMENT(t):
+    r'BTW.*'
+    pass
+
 def t_comment(t):
     r'OBTW'
     t.lexer.begin('comment')
@@ -43,10 +47,6 @@ t_comment_ignore = ''
 def t_TYPE(t):
     r'NUMBR|NUMBAR|YARN|TROOF'
     return t
-
-def t_COMMENT(t):
-    r'BTW.*'
-    pass
 
 def t_IF(t):
     r'O\ RLY\?'
@@ -278,7 +278,7 @@ def eval(p):
         elif p[0] == 'assign':
             variables[p[1]] = eval(p[2])
         elif p[0] in operations.keys():
-            fir, sec = lolbool_to_bool([p[1], p[2]])
+            fir, sec = get_val_by_name([p[1], p[2]])
             res = operations[p[0]](fir, sec)
             if p[0] in ['BOTH', 'EITHER', 'WON']:
                 return type_lol[str(bool(res))]
@@ -286,7 +286,8 @@ def eval(p):
                  return type_lol[str(res)]
             return res
         elif p[0] == 'saem':
-            return 'WIN' if p[1] == p[2] else 'FAIL'
+            fir, sec = get_val_by_name([p[1], p[2]])
+            return 'WIN' if fir == sec else 'FAIL'
         elif p[0] == 'DIFFRINT':
             return 'FAIL' if p[1] == p[2] else 'WIN'
         elif p[0] == 'ALL' or p[0] == 'ANY':
@@ -308,6 +309,13 @@ def eval(p):
         elif p[0] == 'print':
             print_ev(p)
     return p
+
+def get_val_by_name(p):
+    list_p = []
+    for i in p:
+
+        list_p.append(variables[i] if i in variables.keys() else i)
+    return list_p
 
 def update(p, num):
     if max(p.keys()) >= num:
@@ -338,6 +346,7 @@ def run(p):
         elif line[0] == 'cast':
             line_1 = eval(line[1])
             line_2 = eval(line[2])
+            val = lol_type[line_2](variables[line_1])
             if line_2 == 'TROOF':
                 val = 'WIN' if lol_type[line_2](variables[line_1]) else 'FAIL'
             variables[line_1] = val
@@ -384,16 +393,11 @@ def run(p):
 if __name__=="__main__":
     if len(sys.argv) == 2:
         data = open(sys.argv[1]).read()
-    lexer.input(data)
-    # while True:
-    #     tok = lexer.token() # читаем следующий токен
-    #     if not tok: break      # закончились печеньки
-    #     print(tok)
     splited_data = data.split('\n')
     commands = {}
     for split in splited_data[:-1]:
-        commands.update(yacc.parse(split + '\n', debug=0))
-    # print(commands)
-    run(commands)
-    print(variables)
-    # print(names)
+        result = yacc.parse(split + '\n', debug=0)
+        if result:
+            commands.update(result)
+    if commands:
+        run(commands)

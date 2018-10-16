@@ -8,7 +8,7 @@ import sys
 
 keywords = (
     'VISIBLE', 'I', 'HAS', 'A', 'R', 'ITZ', 'AN', 'OF', 'WIN', 'FAIL', 'NOOB',
-    'IS', 'NOW', 'TYPE', 'GIMMEH',
+    'IS', 'NOW', 'TYPE', 'GIMMEH', 'YA', 'NO', 'RLY', 'WAI', 'OIC',
     ##math
     'SUM', 'DIFF', 'PRODUKT', 'QUOSHUNT', 'MOD', 'BIGGR', 'SMALLR',
     'BOTH', 'EITHER', 'WON', 'NOT', 'SAEM', 'DIFFRINT', 'ALL', 'ANY', 'MKAY',
@@ -201,11 +201,23 @@ def p_statement_newline(p):
     '''statement : NEWLINE'''
     p[0] = None
 
-def p_start_if(p):
-    '''empty : expression IF'''
-    global if_started
-    if_started = []
-    print('HERE')
+def p_statement_if(p):
+    '''statement : expression IF'''
+    p[0] = (p.lineno(2), ('if', 'if start', p[1]))
+
+def p_statement_true_if(p):
+    '''statement : YA RLY command'''
+    p[0] = (p.lineno(1), ('if', 'if true', p[3]))
+
+def p_statement_false_if(p):
+    '''statement : NO WAI command'''
+    p[0] = (p.lineno(1), ('if', 'if false', p[3]))
+
+def p_statement_if_end(p):
+    '''statement : OIC'''
+    p[0] = (p.lineno(1), ('if', 'if end'))
+# def p_code(p):
+
 
 def p_empty(p):
     ''' empty : '''
@@ -293,20 +305,32 @@ def eval(p):
             if unary not in ['WIN', 'FAIL']:
                 raise Exception('Unexpected type to unary negation')
             return 'WIN' if unary == 'FAIL' else 'FAIL'
+        elif p[0] == 'print':
+            print_ev(p)
     return p
+
+def update(p, num):
+    if max(p.keys()) >= num:
+        return p[num]
+    else:
+        raise Exception('Unable to find OCI')
+
+def print_ev(p):
+    eval_line = eval(p[1])
+    if eval_line in variables.keys():
+        print(variables[eval_line])
+    else:
+        print(eval_line)
 
 def run(p):
     num = min(p.keys())
     global variables
     variables = {}
+    is_if = 'noif'
     while True:
         line = p[num]
         if line[0] == 'print':
-            eval_line = eval(line[1])
-            if eval_line in variables.keys():
-                print(variables[eval_line])
-            else:
-                print(eval_line)
+            print_ev(line)
         elif line[0] == 'GIMMEH':
             if line[1] not in variables:
                 raise Exception('Variable with name {} not found!'.format(line[1]))
@@ -317,12 +341,44 @@ def run(p):
             if line_2 == 'TROOF':
                 val = 'WIN' if lol_type[line_2](variables[line_1]) else 'FAIL'
             variables[line_1] = val
+        elif line[0] == 'if':
+            while True:
+                if line[1] == 'if start':
+                    if is_if != 'noif':
+                        raise Exception('BAD IF')
+                    is_if = 'start'
+                    bool = lol_type[eval(line[2])]
+                    branches = ['if false', 'if true']
+                    find_for = branches[int(bool)]
+                elif line[1] == find_for:
+                    while True:
+                        if line[1] == 'if end':
+                            is_if = 'end'
+                            break
+                        if line[1] == branches[not int(bool)]:
+                            break
+                        if line[0] == 'if':
+                            if not isinstance(line[2][0], str):
+                                inside_data = eval(line[2][1:])
+                            else:
+                                inside_data = eval(line[2])
+                        else:
+                            inside_data = eval(line)
+                        # print(inside_data)
+                        num += 1
+                        line = update(p, num)
+                if line[1] == 'if end' or is_if == 'end':
+                    break
+                num += 1
+                if max(p.keys()) >= num:
+                    line = p[num]
+                else:
+                    raise Exception('Unable to find OCI')
         else:
             a = eval(line)
         num += 1
         if num > max(p.keys()):
             break
-
     return p
 
 if __name__=="__main__":

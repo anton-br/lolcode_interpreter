@@ -317,11 +317,11 @@ def get_val_by_name(p):
         list_p.append(variables[i] if i in variables.keys() else i)
     return list_p
 
-def update(p, num):
-    if max(p.keys()) >= num:
-        return p[num]
+def update(p, num, index):
+    if index < len(num):
+        return p[num[index]]
     else:
-        raise Exception('Unable to find OCI')
+        return "BREAK"
 
 def print_ev(p):
     eval_line = eval(p[1])
@@ -331,12 +331,13 @@ def print_ev(p):
         print(eval_line)
 
 def run(p):
-    num = min(p.keys())
+    num = sorted(p.keys())
     global variables
     variables = {}
     is_if = 'noif'
+    index = 0
+    line = p[num[index]]
     while True:
-        line = p[num]
         if line[0] == 'print':
             print_ev(line)
         elif line[0] == 'GIMMEH':
@@ -373,20 +374,21 @@ def run(p):
                                 inside_data = eval(line[2])
                         else:
                             inside_data = eval(line)
-                        # print(inside_data)
-                        num += 1
-                        line = update(p, num)
+                        index += 1
+                        line = update(p, num, index)
+                        if isinstance(line, str):
+                            raise Exception('Something happend in IF operation.')
                 if line[1] == 'if end' or is_if == 'end':
                     break
-                num += 1
-                if max(p.keys()) >= num:
-                    line = p[num]
-                else:
-                    raise Exception('Unable to find OCI')
+                index += 1
+                line = update(p, num, index)
+                if isinstance(line, str):
+                    raise Exception('Lost OCI. If must ended with OCI.')
         else:
             a = eval(line)
-        num += 1
-        if num > max(p.keys()):
+        index += 1
+        line = update(p, num, index)
+        if isinstance(line, str):
             break
     return p
 
